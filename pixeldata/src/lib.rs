@@ -99,7 +99,6 @@ use dicom_transfer_syntax_registry::TransferSyntaxRegistry;
 use image::{DynamicImage, ImageBuffer, Luma, Rgb};
 use ndarray::{Array, Ix3, Ix4};
 use num_traits::NumCast;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use snafu::OptionExt;
 use snafu::{Backtrace, ResultExt, Snafu};
 use std::borrow::Cow;
@@ -655,7 +654,7 @@ impl DecodedPixelData<'_> {
 
     fn mono_image_with_narrow_par(
         &self,
-        pixel_values: impl ParallelIterator<Item = u16>,
+        pixel_values: impl Iterator<Item = u16>,
         bit_depth: BitDepthOption,
     ) -> Result<DynamicImage> {
         if bit_depth == BitDepthOption::Force8Bit {
@@ -701,7 +700,7 @@ impl DecodedPixelData<'_> {
 
     fn mono_image_with_extend_par(
         &self,
-        pixel_values: impl ParallelIterator<Item = u8>,
+        pixel_values: impl Iterator<Item = u8>,
         bit_depth: BitDepthOption,
     ) -> Result<DynamicImage> {
         if bit_depth == BitDepthOption::Force16Bit {
@@ -838,7 +837,7 @@ impl DecodedPixelData<'_> {
                             .context(CreateLutSnafu)?,
                         };
 
-                        let pixel_values = lut.map_par_iter(data.par_iter().copied());
+                        let pixel_values = lut.map_iter(data.iter().copied());
                         self.mono_image_with_extend_par(pixel_values, *bit_depth)?
                     }
                 }
@@ -942,7 +941,7 @@ impl DecodedPixelData<'_> {
                         }
                         .context(CreateLutSnafu)?;
 
-                        let values = lut.map_par_iter(samples.par_iter().copied());
+                        let values = lut.map_iter(samples.iter().copied());
                         self.mono_image_with_narrow_par(values, *bit_depth)?
                     }
                 }
@@ -1153,14 +1152,14 @@ impl DecodedPixelData<'_> {
                         }
                         .context(CreateLutSnafu)?;
 
-                        let data: Vec<T> = lut.map_par_iter(data.par_iter().copied()).collect();
+                        let data: Vec<T> = lut.map_iter(data.iter().copied()).collect();
 
                         Ok(data)
                     }
                     _ => {
                         // 1-channel Grayscale image
                         let converted: Result<Vec<T>, _> = data
-                            .par_iter()
+                            .iter()
                             .map(|v| T::from(*v).ok_or(snafu::NoneError))
                             .collect();
                         converted.context(InvalidDataTypeSnafu).map_err(Error::from)
@@ -1222,7 +1221,7 @@ impl DecodedPixelData<'_> {
                         }
                         .context(CreateLutSnafu)?;
 
-                        Ok(lut.map_par_iter(samples.into_par_iter()).collect())
+                        Ok(lut.map_iter(samples.into_iter()).collect())
                     }
                     _ => {
                         // no transformations
@@ -1232,7 +1231,7 @@ impl DecodedPixelData<'_> {
                                 let dest = bytes_to_vec_u16(data);
 
                                 let converted: Result<Vec<T>, _> = dest
-                                    .par_iter()
+                                    .iter()
                                     .map(|v| T::from(*v).ok_or(snafu::NoneError))
                                     .collect();
                                 converted.context(InvalidDataTypeSnafu).map_err(Error::from)
@@ -1243,7 +1242,7 @@ impl DecodedPixelData<'_> {
                                 NativeEndian::read_i16_into(data, &mut signed_buffer);
 
                                 let converted: Result<Vec<T>, _> = signed_buffer
-                                    .par_iter()
+                                    .iter()
                                     .map(|v| T::from(*v).ok_or(snafu::NoneError))
                                     .collect();
                                 converted.context(InvalidDataTypeSnafu).map_err(Error::from)
@@ -1471,7 +1470,7 @@ fn convert_colorspace_u16(i: &mut [u16]) {
 /// Convert the i16 vector by shifting it up,
 /// thus maintaining the order between sample values.
 fn convert_i16_to_u16(i: &[i16]) -> Vec<u16> {
-    i.par_iter().map(|p| (*p as i32 + 0x8000) as u16).collect()
+    i.iter().map(|p| (*p as i32 + 0x8000) as u16).collect()
 }
 
 pub trait PixelDecoder {

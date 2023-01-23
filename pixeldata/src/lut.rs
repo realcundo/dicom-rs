@@ -9,7 +9,6 @@
 //! for common DICOM sample value transformations.
 
 use num_traits::{NumCast, ToPrimitive};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use snafu::{OptionExt, Snafu};
 
 use crate::{Rescale, WindowLevelTransform};
@@ -107,7 +106,7 @@ where
         debug_assert!(size.is_power_of_two());
 
         let table: Result<Vec<_>, _> = (0..size)
-            .into_par_iter()
+            .into_iter()
             .map(|i| {
                 // account for signedness to determine input pixel value
                 let x = if signed && i >= size / 2 {
@@ -308,19 +307,6 @@ where
         I: Into<u32>,
     {
         iter.into_iter().map(move |i| self.get(i))
-    }
-
-    /// Adapts a parallel iterator of pixel data sample values
-    /// to a parallel iterator of transformed values.
-    pub fn map_par_iter<'a, I: 'static>(
-        &'a self,
-        iter: impl ParallelIterator<Item = I> + 'a,
-    ) -> impl ParallelIterator<Item = T> + 'a
-    where
-        I: Copy,
-        I: Into<u32>,
-    {
-        iter.map(move |i| self.get(i))
     }
 }
 
